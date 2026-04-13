@@ -1,0 +1,303 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+och, small OpenClaw session helper
+
+Usage:
+  och list-sessions [-a|--agent <agent>]
+  och get-session-names [-a|--agent <agent>]
+  och name-session <session-key> [name]
+  och name-sessions [-a|--agent <agent>]
+  och list-agent-skills [-a|--agent <agent>]
+  och delete-session <session-key>
+  och help
+
+Commands:
+  list-sessions         List session keys for one agent or all agents
+  get-session-names     List session keys with displayName for one agent or all agents
+  name-session          Set displayName for one session, defaulting to the session key
+  name-sessions         Set displayName = session key for one agent or all agents
+  list-agent-skills     List workspace skills for one agent or all agents
+  delete-session        Delete one session entry, inferring the agent from the key
+
+Notes:
+  - Session files live under ~/.openclaw/agents/<agent>/sessions/sessions.json
+  - Agent skills live under ~/.openclaw/workspace/<agent>/skills/
+  - In-place JSON updates use jq + sponge
+EOF
+}
+
+die() {
+  printf 'och: %s\n' "$*" >&2
+  exit 1
+}
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
+}
+
+setup_colors() {
+  if [[ -t 1 && -z "${NO_COLOR:-}" && "${TERM:-}" != "dumb" ]]; then
+    C_RESET=$'\033[0m'
+    C_HEADER=$'\033[1;36m'
+    C_LABEL=$'\033[1;34m'
+    C_ITEM=$'\033[0;32m'
+    C_VALUE=$'\033[0;33m'
+    C_DIM=$'\033[2m'
+  else
+    C_RESET=''
+    C_HEADER=''
+    C_LABEL=''
+    C_ITEM=''
+    C_VALUE=''
+    C_DIM=''
+  fi
+}
+
+print_section_header() {
+  local label="$1"
+  local name="$2"
+  local count="$3"
+  local noun="$4"
+  local suffix='s'
+  [[ "$count" -eq 1 ]] && suffix=''
+  printf '%s== %s%s %s%s (%s %s%s) ==%s\n' \
+    "$C_HEADER" "$C_LABEL" "$label" "$name" "$C_HEADER" "$count" "$noun" "$suffix" "$C_RESET"
+}
+
+session_file_for_agent() {
+  local agent="$1"
+  printf '%s/.openclaw/agents/%s/sessions/sessions.json\n' "$HOME" "$agent"
+}
+
+require_session_file() {
+  local file="$1"
+  [[ -f "$file" ]] || die "session file not found: $file"
+}
+
+parse_agent_flag() {
+  local agent=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -a|--agent)
+        [[ $# -ge 2 ]] || die "missing value for $1"
+        agent="$2"
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        die "unknown argument: $1"
+        ;;
+    esac
+  done
+  printf '%s\n' "$agent"
+}
+
+all_session_files() {
+  local base_dir="$HOME/.openclaw/agents"
+  local files=()
+  shopt -s nullglob
+  files=("$base_dir"/*/sessions/sessions.json)
+  shopt -u nullglob
+  ((${#files[@]} > 0)) || die "no session files found under: $base_dir"
+  printf '%s\n' "${files[@]}"
+}
+
+session_files_for_scope() {
+  local agent="$1"
+  local file
+  if [[ -n "$agent" ]]; then
+    file="$(session_file_for_agent "$agent")"
+    require_session_file "$file"
+    printf '%s\n' "$file"
+  else
+    all_session_files
+  fi
+}
+
+all_skill_dirs() {
+  local base_dir="$HOME/.openclaw/workspace"
+  local dirs=()
+  shopt -s nullglob
+  dirs=("$base_dir"/*/skills)
+  shopt -u nullglob
+  ((${#dirs[@]} > 0)) || die "no skills directories found under: $base_dir"
+  printf '%s\n' "${dirs[@]}"
+}
+
+skill_dirs_for_scope() {
+  local agent="$1"
+  local dir
+  if [[ -n "$agent" ]]; then
+    dir="$HOME/.openclaw/workspace/$agent/skills"
+    [[ -d "$dir" ]] || die "skills directory not found: $dir"
+    printf '%s\n' "$dir"
+  else
+    all_skill_dirs
+  fi
+}
+
+agent_from_session_key() {
+  local session_key="$1"
+  [[ "$session_key" == agent:*:* ]] || die "could not infer agent from session key: $session_key"
+  local rest="${session_key#agent:}"
+  printf '%s\n' "${rest%%:*}"
+}
+
+cmd_list_sessions() {
+  require_cmd jq
+  local agent file agent_name first=1 count
+  setup_colors
+  agent="$(parse_agent_flag "$@")"
+  while IFS= read -r file; do
+    agent_name="$(basename "$(dirname "$(dirname "$file")")")"
+    count="$(jq 'keys | length' "$file")"
+    if [[ $first -eq 0 ]]; then
+      printf '\n'
+    fi
+    first=0
+    print_section_header "agent" "$agent_name" "$count" "session"
+    printf '%s%s%s\n' "$C_DIM" "$file" "$C_RESET"
+    if [[ "$count" -eq 0 ]]; then
+      printf '  %s(none)%s\n' "$C_DIM" "$C_RESET"
+      continue
+    fi
+    jq -r 'keys[]' "$file" | while IFS= read -r session_key; do
+      printf '  %s- %s%s\n' "$C_ITEM" "$session_key" "$C_RESET"
+    done
+  done < <(session_files_for_scope "$agent")
+}
+
+cmd_get_session_names() {
+  require_cmd jq
+  local agent file agent_name first=1 count line session_key display_name
+  setup_colors
+  agent="$(parse_agent_flag "$@")"
+  while IFS= read -r file; do
+    agent_name="$(basename "$(dirname "$(dirname "$file")")")"
+    count="$(jq 'keys | length' "$file")"
+    if [[ $first -eq 0 ]]; then
+      printf '\n'
+    fi
+    first=0
+    print_section_header "agent" "$agent_name" "$count" "session"
+    printf '%s%s%s\n' "$C_DIM" "$file" "$C_RESET"
+    if [[ "$count" -eq 0 ]]; then
+      printf '  %s(none)%s\n' "$C_DIM" "$C_RESET"
+      continue
+    fi
+    while IFS=$'\t' read -r session_key display_name; do
+      if [[ "$display_name" == "null" ]]; then
+        printf '  %s- %s%s -> %snull%s\n' "$C_ITEM" "$session_key" "$C_RESET" "$C_DIM" "$C_RESET"
+      else
+        printf '  %s- %s%s -> %s%s%s\n' "$C_ITEM" "$session_key" "$C_RESET" "$C_VALUE" "$display_name" "$C_RESET"
+      fi
+    done < <(jq -r 'to_entries[] | [.key, (if .value.displayName == null then "null" else .value.displayName end)] | @tsv' "$file")
+  done < <(session_files_for_scope "$agent")
+}
+
+cmd_name_session() {
+  require_cmd jq
+  require_cmd sponge
+  [[ $# -ge 1 && $# -le 2 ]] || die "usage: och name-session <session-key> [name]"
+  local session_key="$1"
+  local name="${2:-$session_key}"
+  local agent file
+  agent="$(agent_from_session_key "$session_key")"
+  file="$(session_file_for_agent "$agent")"
+  require_session_file "$file"
+  jq -e --arg key "$session_key" 'has($key)' "$file" >/dev/null || die "session not found: $session_key"
+  jq --arg key "$session_key" --arg name "$name" '.[$key].displayName = $name' "$file" | sponge "$file"
+}
+
+cmd_name_sessions() {
+  require_cmd jq
+  require_cmd sponge
+  local agent file
+  agent="$(parse_agent_flag "$@")"
+  while IFS= read -r file; do
+    jq 'with_entries(.key as $k | .value |= . + { displayName: $k })' "$file" | sponge "$file"
+  done < <(session_files_for_scope "$agent")
+}
+
+cmd_list_agent_skills() {
+  local agent dir skill agent_name first=1 count
+  setup_colors
+  agent="$(parse_agent_flag "$@")"
+  while IFS= read -r dir; do
+    agent_name="$(basename "$(dirname "$dir")")"
+    shopt -s nullglob
+    local skills=("$dir"/*)
+    shopt -u nullglob
+    count="${#skills[@]}"
+    if [[ $first -eq 0 ]]; then
+      printf '\n'
+    fi
+    first=0
+    print_section_header "agent" "$agent_name" "$count" "skill"
+    printf '%s%s%s\n' "$C_DIM" "$dir" "$C_RESET"
+    if ((${#skills[@]} == 0)); then
+      printf '  %s(none)%s\n' "$C_DIM" "$C_RESET"
+      continue
+    fi
+    for skill in "${skills[@]}"; do
+      printf '  %s- %s%s\n' "$C_ITEM" "$(basename "$skill")" "$C_RESET"
+    done
+  done < <(skill_dirs_for_scope "$agent")
+}
+
+cmd_delete_session() {
+  require_cmd jq
+  require_cmd sponge
+  [[ $# -eq 1 ]] || die "usage: och delete-session <session-key>"
+  local session_key="$1"
+  local agent file
+  agent="$(agent_from_session_key "$session_key")"
+  file="$(session_file_for_agent "$agent")"
+  require_session_file "$file"
+  jq -e --arg key "$session_key" 'has($key)' "$file" >/dev/null || die "session not found: $session_key"
+  jq --arg key "$session_key" 'del(.[$key])' "$file" | sponge "$file"
+}
+
+main() {
+  local cmd="${1:-help}"
+  case "$cmd" in
+    list-sessions)
+      shift
+      cmd_list_sessions "$@"
+      ;;
+    get-session-names)
+      shift
+      cmd_get_session_names "$@"
+      ;;
+    name-session)
+      shift
+      cmd_name_session "$@"
+      ;;
+    name-sessions)
+      shift
+      cmd_name_sessions "$@"
+      ;;
+    list-agent-skills|ls-agent-skills)
+      shift
+      cmd_list_agent_skills "$@"
+      ;;
+    delete-session)
+      shift
+      cmd_delete_session "$@"
+      ;;
+    help|-h|--help)
+      usage
+      ;;
+    *)
+      die "unknown command: $cmd"
+      ;;
+  esac
+}
+
+main "$@"

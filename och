@@ -11,6 +11,7 @@ Usage:
   och name-session <session-key> [name]
   och name-sessions [-a|--agent <agent>]
   och list-agent-skills [-a|--agent <agent>]
+  och get-agent-skill <skill-name>
   och delete-session <session-key>
   och help
 
@@ -20,6 +21,7 @@ Commands:
   name-session          Set displayName for one session, defaulting to the session key
   name-sessions         Set displayName = session key for one agent or all agents
   list-agent-skills     List workspace skills for one agent or all agents
+  get-agent-skill       Open one matching SKILL.md in $EDITOR
   delete-session        Delete one session entry, inferring the agent from the key
 
 Notes:
@@ -251,6 +253,30 @@ cmd_list_agent_skills() {
   done < <(skill_dirs_for_scope "$agent")
 }
 
+cmd_get_agent_skill() {
+  [[ $# -eq 1 ]] || die "usage: och get-agent-skill <skill-name>"
+  [[ -n "${EDITOR:-}" ]] || die 'EDITOR is not set'
+  local skill_name="$1"
+  local base_dir="$HOME/.openclaw/workspace"
+  local matches=()
+  shopt -s nullglob
+  matches=("$base_dir"/*/skills/"$skill_name"/SKILL.md)
+  shopt -u nullglob
+  case "${#matches[@]}" in
+    0)
+      die "skill not found: $skill_name"
+      ;;
+    1)
+      "$EDITOR" "${matches[0]}"
+      ;;
+    *)
+      printf 'och: several skills match %s\n' "$skill_name" >&2
+      printf '%s\n' "${matches[@]}"
+      return 1
+      ;;
+  esac
+}
+
 cmd_delete_session() {
   require_cmd jq
   require_cmd sponge
@@ -286,6 +312,10 @@ main() {
     list-agent-skills|ls-agent-skills)
       shift
       cmd_list_agent_skills "$@"
+      ;;
+    get-agent-skill)
+      shift
+      cmd_get_agent_skill "$@"
       ;;
     delete-session)
       shift

@@ -323,6 +323,10 @@ main() {
       shift
       cmd_list_sessions "$@"
       ;;
+    ls-sessions)
+      shift
+      cmd_list_sessions "$@"
+      ;;
     get-session-names)
       shift
       cmd_get_session_names "$@"

@@ -5,11 +5,16 @@ _och_commands() {
     name-session \
     name-sessions \
     list-agent-skills \
-    ls-agent-skills \
     get-agent-skill \
     delete-session \
     launch-tui-session \
     help
+}
+
+_och_command_aliases() {
+  printf '%s\n' \
+    ls-sessions \
+    ls-agent-skills
 }
 
 _och_agents() {
@@ -56,12 +61,17 @@ _och() {
   fi
 
   if (( cword == 1 )); then
-    COMPREPLY=( $(compgen -W "$(_och_commands)" -- "$cur") )
+    if [[ -z "$cur" ]]; then
+      COMPREPLY=( $(compgen -W "$(_och_commands)" -- "$cur") )
+    else
+      COMPREPLY=( $(compgen -W "$(_och_commands)
+$(_och_command_aliases)" -- "$cur") )
+    fi
     return
   fi
 
   case "${words[1]}" in
-    list-sessions|get-session-names|name-sessions|list-agent-skills|ls-agent-skills)
+    list-sessions|ls-sessions|get-session-names|name-sessions|list-agent-skills|ls-agent-skills)
       case "$prev" in
         -a|--agent)
           COMPREPLY=( $(compgen -W "$(_och_agents)" -- "$cur") )

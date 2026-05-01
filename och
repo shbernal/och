@@ -13,6 +13,7 @@ Usage:
   och list-agent-skills [-a|--agent <agent>]
   och get-agent-skill <skill-name>
   och delete-session <session-key>
+  och launch-tui-session <session-key> [openclaw-tui-args...]
   och help
 
 Commands:
@@ -23,6 +24,7 @@ Commands:
   list-agent-skills     List workspace skills for one agent or all agents
   get-agent-skill       Open one matching SKILL.md in $EDITOR
   delete-session        Delete one session entry, inferring the agent from the key
+  launch-tui-session    Run openclaw tui for one session key
 
 Notes:
   - Session files live under ~/.openclaw/agents/<agent>/sessions/sessions.json
@@ -290,6 +292,30 @@ cmd_delete_session() {
   jq --arg key "$session_key" 'del(.[$key])' "$file" | sponge "$file"
 }
 
+cmd_launch_tui_session() {
+  case "${1:-}" in
+    -h|--help|"")
+      cat <<'EOF'
+Usage:
+  och launch-tui-session <session-key> [openclaw-tui-args...]
+  och launch-tui-session -h|--help
+
+Wraps:
+  openclaw tui --session <session-key> [openclaw-tui-args...]
+EOF
+      [[ $# -gt 0 ]] || return 1
+      return 0
+      ;;
+  esac
+
+  require_cmd openclaw
+
+  local session_key="$1"
+  shift
+
+  exec openclaw tui --session "$session_key" "$@"
+}
+
 main() {
   local cmd="${1:-help}"
   case "$cmd" in
@@ -320,6 +346,10 @@ main() {
     delete-session)
       shift
       cmd_delete_session "$@"
+      ;;
+    launch-tui-session)
+      shift
+      cmd_launch_tui_session "$@"
       ;;
     help|-h|--help)
       usage

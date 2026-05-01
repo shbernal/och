@@ -8,6 +8,7 @@ _och_commands() {
     ls-agent-skills \
     get-agent-skill \
     delete-session \
+    launch-tui-session \
     help
 }
 
@@ -73,6 +74,18 @@ _och() {
       if (( cword == 2 )); then
         COMPREPLY=( $(compgen -W "$(_och_sessions)" -- "$cur") )
       fi
+      ;;
+    launch-tui-session)
+      if (( cword == 2 )); then
+        COMPREPLY=( $(compgen -W "$(_och_sessions)" -- "$cur") )
+        return
+      fi
+      case "$prev" in
+        --url|--token|--password|--thinking|--message|--timeout-ms|--history-limit)
+          return
+          ;;
+      esac
+      COMPREPLY=( $(compgen -W "--url --token --password --deliver --thinking --message --timeout-ms --history-limit -h --help" -- "$cur") )
       ;;
     get-agent-skill)
       if (( cword == 2 )); then

@@ -1,8 +1,8 @@
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 BASH_COMPLETIONDIR ?= $(PREFIX)/share/bash-completion/completions
-SCRIPT := och
-COMPLETION := completions/och.bash
+SCRIPTS := och
+COMPLETIONS := completions/och.bash
 INSTALL := install
 
 .PHONY: help test install install-user uninstall
@@ -22,16 +22,16 @@ help:
 	  '  DESTDIR=...                    Optional packaging/staging prefix'
 
 test:
-	bash -n $(SCRIPT)
-	bash -n $(COMPLETION)
+	for script in $(SCRIPTS); do bash -n $$script; done
+	for completion in $(COMPLETIONS); do bash -n $$completion; done
 
 install:
-	$(INSTALL) -Dm755 $(SCRIPT) $(DESTDIR)$(BINDIR)/$(SCRIPT)
-	$(INSTALL) -Dm644 $(COMPLETION) $(DESTDIR)$(BASH_COMPLETIONDIR)/$(SCRIPT)
+	for script in $(SCRIPTS); do $(INSTALL) -Dm755 $$script $(DESTDIR)$(BINDIR)/$$script; done
+	for completion in $(COMPLETIONS); do $(INSTALL) -Dm644 $$completion $(DESTDIR)$(BASH_COMPLETIONDIR)/$$(basename $$completion .bash); done
 
 install-user:
 	$(MAKE) install PREFIX="$$HOME/.local"
 
 uninstall:
-	rm -f $(DESTDIR)$(BINDIR)/$(SCRIPT)
-	rm -f $(DESTDIR)$(BASH_COMPLETIONDIR)/$(SCRIPT)
+	for script in $(SCRIPTS); do rm -f $(DESTDIR)$(BINDIR)/$$script; done
+	for completion in $(COMPLETIONS); do rm -f $(DESTDIR)$(BASH_COMPLETIONDIR)/$$(basename $$completion .bash); done

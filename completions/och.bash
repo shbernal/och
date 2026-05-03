@@ -109,13 +109,9 @@ $(_och_command_aliases)" -- "$cur") )
 
   case "${words[1]}" in
     list-sessions|ls-sessions|get-session-names|name-sessions|list-agent-skills|ls-agent-skills)
-      case "$prev" in
-        -a|--agent)
-          COMPREPLY=( $(compgen -W "$(_och_agents)" -- "$cur") )
-          return
-          ;;
-      esac
-      COMPREPLY=( $(compgen -W "-a --agent -h --help" -- "$cur") )
+      if (( cword == 2 )); then
+        COMPREPLY=( $(compgen -W "$(_och_agents)" -- "$cur") )
+      fi
       ;;
     name-session|delete-session)
       if (( cword == 2 )); then

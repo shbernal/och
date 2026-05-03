@@ -6,11 +6,11 @@ usage() {
 och, small OpenClaw session helper
 
 Usage:
-  och list-sessions [-a|--agent <agent>]
-  och get-session-names [-a|--agent <agent>]
+  och list-sessions [agent]
+  och get-session-names [agent]
   och name-session <session-key> [name]
-  och name-sessions [-a|--agent <agent>]
-  och list-agent-skills [-a|--agent <agent>]
+  och name-sessions [agent]
+  och list-agent-skills [agent]
   och get-agent-skill <skill-name>
   och delete-session <session-key>
   och launch-tui-session <session-key> [openclaw-tui-args...]
@@ -81,25 +81,25 @@ require_session_file() {
   [[ -f "$file" ]] || die "session file not found: $file"
 }
 
-parse_agent_flag() {
-  local agent=""
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      -a|--agent)
-        [[ $# -ge 2 ]] || die "missing value for $1"
-        agent="$2"
-        shift 2
-        ;;
-      -h|--help)
-        usage
-        exit 0
-        ;;
-      *)
-        die "unknown argument: $1"
-        ;;
-    esac
-  done
-  printf '%s\n' "$agent"
+parse_optional_agent() {
+  case $# in
+    0)
+      printf '\n'
+      ;;
+    1)
+      case "$1" in
+        -*)
+          die "unknown argument: $1"
+          ;;
+        *)
+          printf '%s\n' "$1"
+          ;;
+      esac
+      ;;
+    *)
+      die "too many arguments"
+      ;;
+  esac
 }
 
 all_session_files() {
@@ -203,7 +203,7 @@ cmd_list_sessions() {
   require_cmd jq
   local agent file agent_name first=1 count
   setup_colors
-  agent="$(parse_agent_flag "$@")"
+  agent="$(parse_optional_agent "$@")"
   while IFS= read -r file; do
     agent_name="$(basename "$(dirname "$(dirname "$file")")")"
     count="$(jq 'keys | length' "$file")"
@@ -227,7 +227,7 @@ cmd_get_session_names() {
   require_cmd jq
   local agent file agent_name first=1 count line session_key display_name
   setup_colors
-  agent="$(parse_agent_flag "$@")"
+  agent="$(parse_optional_agent "$@")"
   while IFS= read -r file; do
     agent_name="$(basename "$(dirname "$(dirname "$file")")")"
     count="$(jq 'keys | length' "$file")"
@@ -271,7 +271,7 @@ cmd_name_sessions() {
   require_cmd jq
   require_cmd sponge
   local agent file
-  agent="$(parse_agent_flag "$@")"
+  agent="$(parse_optional_agent "$@")"
   while IFS= read -r file; do
     jq 'with_entries(.key as $k | .value |= . + { displayName: $k })' "$file" | sponge "$file"
   done < <(session_files_for_scope "$agent")
@@ -280,7 +280,7 @@ cmd_name_sessions() {
 cmd_list_agent_skills() {
   local agent dir skill agent_name first=1 count
   setup_colors
-  agent="$(parse_agent_flag "$@")"
+  agent="$(parse_optional_agent "$@")"
   while IFS= read -r dir; do
     agent_name="$(basename "$(dirname "$dir")")"
     shopt -s nullglob

@@ -52,7 +52,7 @@ Then try:
 
 ```bash
 och <TAB>
-och list-sessions --agent <TAB>
+och list-sessions <TAB>
 och delete-session <TAB>
 och get-agent-skill <TAB>
 och launch-tui-session <TAB>

@@ -35,6 +35,41 @@ _och_sessions() {
   shopt -u nullglob
 }
 
+_och_session_targets() {
+  local file
+  shopt -s nullglob
+  for file in "$HOME"/.openclaw/agents/*/sessions/sessions.json; do
+    jq -r '
+      to_entries[]
+      | .key,
+        (if .value.displayName == null or .value.displayName == "" then empty else .value.displayName end)
+    ' "$file" 2>/dev/null
+  done | awk '!seen[$0]++'
+  shopt -u nullglob
+}
+
+_och_unescape_cur() {
+  local value="$1"
+  value="${value//\\ / }"
+  value="${value//\\\\/\\}"
+  printf '%s\n' "$value"
+}
+
+_och_complete_session_target() {
+  local prefix candidate escaped
+  prefix="$(_och_unescape_cur "$cur")"
+  COMPREPLY=()
+  while IFS= read -r candidate; do
+    [[ "$candidate" == "$prefix"* ]] || continue
+    printf -v escaped '%q' "$candidate"
+    COMPREPLY+=("$escaped")
+  done < <(_och_session_targets)
+  if declare -F __ltrim_colon_completions >/dev/null 2>&1; then
+    __ltrim_colon_completions "$cur"
+  fi
+  compopt -o nospace 2>/dev/null
+}
+
 _och_skills() {
   local dir
   shopt -s nullglob
@@ -46,11 +81,13 @@ _och_skills() {
 
 _och() {
   local cur prev words cword
+  COMPREPLY=()
 
-  if declare -F _init_completion >/dev/null 2>&1; then
-    _init_completion || return
+  if declare -F _get_comp_words_by_ref >/dev/null 2>&1; then
+    _get_comp_words_by_ref -n : cur prev words cword
+  elif declare -F _init_completion >/dev/null 2>&1; then
+    _init_completion -n : || return
   else
-    COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev=""
     if (( COMP_CWORD > 0 )); then
@@ -82,12 +119,12 @@ $(_och_command_aliases)" -- "$cur") )
       ;;
     name-session|delete-session)
       if (( cword == 2 )); then
-        COMPREPLY=( $(compgen -W "$(_och_sessions)" -- "$cur") )
+        _och_complete_session_target
       fi
       ;;
     launch-tui-session)
       if (( cword == 2 )); then
-        COMPREPLY=( $(compgen -W "$(_och_sessions)" -- "$cur") )
+        _och_complete_session_target
         return
       fi
       case "$prev" in

@@ -23,8 +23,8 @@ Commands:
   name-sessions         Set displayName = session key for one agent or all agents
   list-agent-skills     List workspace skills for one agent or all agents
   get-agent-skill       Open one matching SKILL.md in $EDITOR
-  delete-session        Delete one session entry, inferring the agent from the key
-  launch-tui-session    Run openclaw tui for one session key
+  delete-session        Delete one session entry
+  launch-tui-session    Run openclaw tui for one session
 
 Notes:
   - Session files live under ~/.openclaw/agents/<agent>/sessions/sessions.json
@@ -124,6 +124,16 @@ session_files_for_scope() {
   fi
 }
 
+all_session_entries() {
+  require_cmd jq
+  local file session_key display_name
+  while IFS= read -r file; do
+    while IFS=$'\t' read -r session_key display_name; do
+      printf '%s\t%s\t%s\n' "$session_key" "$display_name" "$file"
+    done < <(jq -r 'to_entries[] | [.key, (if .value.displayName == null then "" else .value.displayName end)] | @tsv' "$file")
+  done < <(all_session_files)
+}
+
 all_skill_dirs() {
   local base_dir="$HOME/.openclaw/workspace"
   local dirs=()
@@ -151,6 +161,42 @@ agent_from_session_key() {
   [[ "$session_key" == agent:*:* ]] || die "could not infer agent from session key: $session_key"
   local rest="${session_key#agent:}"
   printf '%s\n' "${rest%%:*}"
+}
+
+resolve_session_identifier() {
+  local identifier="$1"
+  local session_key display_name file
+  local exact_key_matches=()
+  local display_name_matches=()
+
+  while IFS=$'\t' read -r session_key display_name file; do
+    if [[ "$session_key" == "$identifier" ]]; then
+      exact_key_matches+=("$session_key")
+      continue
+    fi
+    if [[ -n "$display_name" && "$display_name" == "$identifier" ]]; then
+      display_name_matches+=("$session_key")
+    fi
+  done < <(all_session_entries)
+
+  if ((${#exact_key_matches[@]} == 1)); then
+    printf '%s\n' "${exact_key_matches[0]}"
+    return
+  fi
+
+  if ((${#display_name_matches[@]} == 1)); then
+    printf '%s\n' "${display_name_matches[0]}"
+    return
+  fi
+
+  if ((${#display_name_matches[@]} > 1)); then
+    printf 'och: session name is ambiguous: %s\n' "$identifier" >&2
+    printf 'och: matching session keys:\n' >&2
+    printf '  %s\n' "${display_name_matches[@]}" >&2
+    exit 1
+  fi
+
+  die "session not found: $identifier"
 }
 
 cmd_list_sessions() {
@@ -209,9 +255,11 @@ cmd_name_session() {
   require_cmd jq
   require_cmd sponge
   [[ $# -ge 1 && $# -le 2 ]] || die "usage: och name-session <session-key> [name]"
-  local session_key="$1"
-  local name="${2:-$session_key}"
+  local session_identifier="$1"
+  local session_key
   local agent file
+  session_key="$(resolve_session_identifier "$session_identifier")"
+  local name="${2:-$session_key}"
   agent="$(agent_from_session_key "$session_key")"
   file="$(session_file_for_agent "$agent")"
   require_session_file "$file"
@@ -283,8 +331,10 @@ cmd_delete_session() {
   require_cmd jq
   require_cmd sponge
   [[ $# -eq 1 ]] || die "usage: och delete-session <session-key>"
-  local session_key="$1"
+  local session_identifier="$1"
+  local session_key
   local agent file
+  session_key="$(resolve_session_identifier "$session_identifier")"
   agent="$(agent_from_session_key "$session_key")"
   file="$(session_file_for_agent "$agent")"
   require_session_file "$file"
@@ -301,7 +351,7 @@ Usage:
   och launch-tui-session -h|--help
 
 Wraps:
-  openclaw tui --session <session-key> [openclaw-tui-args...]
+  openclaw tui --session <resolved-session-key> [openclaw-tui-args...]
 EOF
       [[ $# -gt 0 ]] || return 1
       return 0
@@ -310,7 +360,8 @@ EOF
 
   require_cmd openclaw
 
-  local session_key="$1"
+  local session_key
+  session_key="$(resolve_session_identifier "$1")"
   shift
 
   exec openclaw tui --session "$session_key" "$@"

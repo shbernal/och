@@ -9,8 +9,8 @@ Quick and dirty tool for some features I feel the OpenClaw TUI is missing.
 - `name-session`, renames a single session
 - `name-sessions`, renames all sessions for one agent or all agents using their session key
 - `list-agent-skills`, lists workspace skills by agent
-- `delete-session`, deletes a session entry by session key
-- `launch-tui-session`, an `och` subcommand that opens `openclaw tui` for a chosen session key
+- `delete-session`, deletes a session entry
+- `launch-tui-session`, an `och` subcommand that opens `openclaw tui` for a chosen session
 
 ## Dependencies
 
@@ -57,3 +57,5 @@ och delete-session <TAB>
 och get-agent-skill <TAB>
 och launch-tui-session <TAB>
 ```
+
+For session-taking commands, completion offers both raw session keys and named sessions. After installation, reload completion or start a new shell before testing.

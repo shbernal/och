@@ -8,7 +8,8 @@ Quick and dirty tool for some features I feel the OpenClaw TUI is missing.
 - `get-session-names`, lists session keys together with their `displayName`
 - `name-session`, renames a single session
 - `name-sessions`, renames all sessions for one agent or all agents using their session key
-- `list-agent-skills`, lists workspace skills by agent
+- `list-skills`, lists general skills and workspace skills by scope
+- `get-skill`, opens one matching `SKILL.md`
 - `delete-session`, deletes a session entry
 - `launch-tui-session`, an `och` subcommand that opens `openclaw tui` for a chosen session
 
@@ -54,7 +55,7 @@ Then try:
 och <TAB>
 och list-sessions <TAB>
 och delete-session <TAB>
-och get-agent-skill <TAB>
+och get-skill <TAB>
 och launch-tui-session <TAB>
 ```
 

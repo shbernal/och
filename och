@@ -10,8 +10,8 @@ Usage:
   och get-session-names [agent]
   och name-session <session-key> [name]
   och name-sessions [agent]
-  och list-agent-skills [agent]
-  och get-agent-skill <skill-name>
+  och list-skills [agent]
+  och get-skill <skill-name>
   och delete-session <session-key>
   och launch-tui-session <session-key> [openclaw-tui-args...]
   och help
@@ -21,13 +21,14 @@ Commands:
   get-session-names     List session keys with displayName for one agent or all agents
   name-session          Set displayName for one session, defaulting to the session key
   name-sessions         Set displayName = session key for one agent or all agents
-  list-agent-skills     List workspace skills for one agent or all agents
-  get-agent-skill       Open one matching SKILL.md in $EDITOR
+  list-skills           List general skills and workspace skills for one agent or all agents
+  get-skill             Open one matching SKILL.md in $EDITOR
   delete-session        Delete one session entry
   launch-tui-session    Run openclaw tui for one session
 
 Notes:
   - Session files live under ~/.openclaw/agents/<agent>/sessions/sessions.json
+  - General skills live under ~/.openclaw/skills/
   - Agent skills live under ~/.openclaw/workspace/<agent>/skills/
   - In-place JSON updates use jq + sponge
 EOF
@@ -134,26 +135,42 @@ all_session_entries() {
   done < <(all_session_files)
 }
 
-all_skill_dirs() {
+all_agent_skill_dirs() {
   local base_dir="$HOME/.openclaw/workspace"
   local dirs=()
   shopt -s nullglob
   dirs=("$base_dir"/*/skills)
   shopt -u nullglob
-  ((${#dirs[@]} > 0)) || die "no skills directories found under: $base_dir"
   printf '%s\n' "${dirs[@]}"
 }
 
 skill_dirs_for_scope() {
   local agent="$1"
-  local dir
+  local general_dir="$HOME/.openclaw/skills"
+  local dir found=0
+
   if [[ -n "$agent" ]]; then
     dir="$HOME/.openclaw/workspace/$agent/skills"
     [[ -d "$dir" ]] || die "skills directory not found: $dir"
+    if [[ -d "$general_dir" ]]; then
+      printf '%s\n' "$general_dir"
+      found=1
+    fi
     printf '%s\n' "$dir"
+    found=1
   else
-    all_skill_dirs
+    if [[ -d "$general_dir" ]]; then
+      printf '%s\n' "$general_dir"
+      found=1
+    fi
+    while IFS= read -r dir; do
+      [[ -n "$dir" ]] || continue
+      printf '%s\n' "$dir"
+      found=1
+    done < <(all_agent_skill_dirs)
   fi
+
+  ((found)) || die "no skills directories found under: $HOME/.openclaw"
 }
 
 agent_from_session_key() {
@@ -277,12 +294,18 @@ cmd_name_sessions() {
   done < <(session_files_for_scope "$agent")
 }
 
-cmd_list_agent_skills() {
-  local agent dir skill agent_name first=1 count
+cmd_list_skills() {
+  local agent dir skill scope_name scope_label first=1 count
   setup_colors
   agent="$(parse_optional_agent "$@")"
   while IFS= read -r dir; do
-    agent_name="$(basename "$(dirname "$dir")")"
+    if [[ "$dir" == "$HOME/.openclaw/skills" ]]; then
+      scope_label="scope"
+      scope_name="general"
+    else
+      scope_label="agent"
+      scope_name="$(basename "$(dirname "$dir")")"
+    fi
     shopt -s nullglob
     local skills=("$dir"/*)
     shopt -u nullglob
@@ -291,7 +314,7 @@ cmd_list_agent_skills() {
       printf '\n'
     fi
     first=0
-    print_section_header "agent" "$agent_name" "$count" "skill"
+    print_section_header "$scope_label" "$scope_name" "$count" "skill"
     printf '%s%s%s\n' "$C_DIM" "$dir" "$C_RESET"
     if ((${#skills[@]} == 0)); then
       printf '  %s(none)%s\n' "$C_DIM" "$C_RESET"
@@ -303,14 +326,22 @@ cmd_list_agent_skills() {
   done < <(skill_dirs_for_scope "$agent")
 }
 
-cmd_get_agent_skill() {
-  [[ $# -eq 1 ]] || die "usage: och get-agent-skill <skill-name>"
+cmd_get_skill() {
+  [[ $# -eq 1 ]] || die "usage: och get-skill <skill-name>"
   [[ -n "${EDITOR:-}" ]] || die 'EDITOR is not set'
   local skill_name="$1"
-  local base_dir="$HOME/.openclaw/workspace"
+  local general_dir="$HOME/.openclaw/skills"
+  local workspace_dir="$HOME/.openclaw/workspace"
+  local general_skill_file="$general_dir/$skill_name/SKILL.md"
   local matches=()
+  local match
+  if [[ -f "$general_skill_file" ]]; then
+    matches+=("$general_skill_file")
+  fi
   shopt -s nullglob
-  matches=("$base_dir"/*/skills/"$skill_name"/SKILL.md)
+  for match in "$workspace_dir"/*/skills/"$skill_name"/SKILL.md; do
+    matches+=("$match")
+  done
   shopt -u nullglob
   case "${#matches[@]}" in
     0)
@@ -390,13 +421,13 @@ main() {
       shift
       cmd_name_sessions "$@"
       ;;
-    list-agent-skills|ls-agent-skills)
+    list-skills|ls-skills|list-agent-skills|ls-agent-skills)
       shift
-      cmd_list_agent_skills "$@"
+      cmd_list_skills "$@"
       ;;
-    get-agent-skill)
+    get-skill|get-agent-skill)
       shift
-      cmd_get_agent_skill "$@"
+      cmd_get_skill "$@"
       ;;
     delete-session)
       shift

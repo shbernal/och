@@ -4,8 +4,8 @@ _och_commands() {
     get-session-names \
     name-session \
     name-sessions \
-    list-agent-skills \
-    get-agent-skill \
+    list-skills \
+    get-skill \
     delete-session \
     launch-tui-session \
     help
@@ -14,7 +14,10 @@ _och_commands() {
 _och_command_aliases() {
   printf '%s\n' \
     ls-sessions \
-    ls-agent-skills
+    ls-skills \
+    list-agent-skills \
+    ls-agent-skills \
+    get-agent-skill
 }
 
 _och_agents() {
@@ -73,6 +76,9 @@ _och_complete_session_target() {
 _och_skills() {
   local dir
   shopt -s nullglob
+  for dir in "$HOME"/.openclaw/skills/*; do
+    [[ -d "$dir" ]] && basename "$dir"
+  done
   for dir in "$HOME"/.openclaw/workspace/*/skills/*; do
     [[ -d "$dir" ]] && basename "$dir"
   done
@@ -108,7 +114,7 @@ $(_och_command_aliases)" -- "$cur") )
   fi
 
   case "${words[1]}" in
-    list-sessions|ls-sessions|get-session-names|name-sessions|list-agent-skills|ls-agent-skills)
+    list-sessions|ls-sessions|get-session-names|name-sessions|list-skills|ls-skills|list-agent-skills|ls-agent-skills)
       if (( cword == 2 )); then
         COMPREPLY=( $(compgen -W "$(_och_agents)" -- "$cur") )
       fi
@@ -130,7 +136,7 @@ $(_och_command_aliases)" -- "$cur") )
       esac
       COMPREPLY=( $(compgen -W "--url --token --password --deliver --thinking --message --timeout-ms --history-limit -h --help" -- "$cur") )
       ;;
-    get-agent-skill)
+    get-skill|get-agent-skill)
       if (( cword == 2 )); then
         COMPREPLY=( $(compgen -W "$(_och_skills)" -- "$cur") )
       fi

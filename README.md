@@ -11,7 +11,7 @@ Quick and dirty tool for some features I feel the OpenClaw TUI is missing.
 - `list-skills`, lists general skills and workspace skills by scope
 - `get-skill`, opens one matching `SKILL.md`
 - `delete-session`, deletes a session entry
-- `launch-tui-session`, an `och` subcommand that opens `openclaw tui` for a chosen session
+- `launch-tui-session`, an `och` subcommand that opens `openclaw tui` for a chosen session and asks before creating a missing `agent:<agent>:<name>` session
 
 ## Dependencies
 

@@ -106,10 +106,17 @@ parse_optional_agent() {
 all_session_files() {
   local base_dir="$HOME/.openclaw/agents"
   local files=()
+  mapfile -t files < <(find_session_files)
+  ((${#files[@]} > 0)) || die "no session files found under: $base_dir"
+  printf '%s\n' "${files[@]}"
+}
+
+find_session_files() {
+  local base_dir="$HOME/.openclaw/agents"
+  local files=()
   shopt -s nullglob
   files=("$base_dir"/*/sessions/sessions.json)
   shopt -u nullglob
-  ((${#files[@]} > 0)) || die "no session files found under: $base_dir"
   printf '%s\n' "${files[@]}"
 }
 
@@ -126,13 +133,12 @@ session_files_for_scope() {
 }
 
 all_session_entries() {
-  require_cmd jq
   local file session_key display_name
   while IFS= read -r file; do
     while IFS=$'\t' read -r session_key display_name; do
       printf '%s\t%s\t%s\n' "$session_key" "$display_name" "$file"
     done < <(jq -r 'to_entries[] | [.key, (if .value.displayName == null then "" else .value.displayName end)] | @tsv' "$file")
-  done < <(all_session_files)
+  done < <(find_session_files)
 }
 
 all_agent_skill_dirs() {
@@ -180,7 +186,7 @@ agent_from_session_key() {
   printf '%s\n' "${rest%%:*}"
 }
 
-resolve_session_identifier() {
+try_resolve_session_identifier() {
   local identifier="$1"
   local session_key display_name file
   local exact_key_matches=()
@@ -210,10 +216,62 @@ resolve_session_identifier() {
     printf 'och: session name is ambiguous: %s\n' "$identifier" >&2
     printf 'och: matching session keys:\n' >&2
     printf '  %s\n' "${display_name_matches[@]}" >&2
-    exit 1
+    return 2
   fi
 
+  return 1
+}
+
+resolve_session_identifier() {
+  require_cmd jq
+  local identifier="$1"
+  local session_key status
+
+  if session_key="$(try_resolve_session_identifier "$identifier")"; then
+    printf '%s\n' "$session_key"
+    return
+  fi
+
+  status=$?
+  [[ "$status" -eq 2 ]] && exit 1
   die "session not found: $identifier"
+}
+
+confirm_create_session() {
+  local session_key="$1"
+  local reply
+
+  [[ -t 0 ]] || die "session not found: $session_key (confirmation requires an interactive terminal)"
+
+  printf 'och: session not found: %s\n' "$session_key" >&2
+  printf 'och: this action will create a new session, continue? [y/N] ' >&2
+  IFS= read -r reply || die "aborted"
+
+  case "$reply" in
+    y|Y|yes|YES|Yes)
+      ;;
+    *)
+      die "aborted"
+      ;;
+  esac
+}
+
+resolve_launch_session_identifier() {
+  require_cmd jq
+  local identifier="$1"
+  local session_key status
+
+  if session_key="$(try_resolve_session_identifier "$identifier")"; then
+    printf '%s\n' "$session_key"
+    return
+  fi
+
+  status=$?
+  [[ "$status" -eq 2 ]] && exit 1
+  [[ "$identifier" == agent:*:* ]] || die "session not found: $identifier"
+
+  confirm_create_session "$identifier"
+  printf '%s\n' "$identifier"
 }
 
 cmd_list_sessions() {
@@ -383,6 +441,9 @@ Usage:
 
 Wraps:
   openclaw tui --session <resolved-session-key> [openclaw-tui-args...]
+
+If <session-key> is a missing agent:<agent>:<name> key, asks before launching it as
+a new session.
 EOF
       [[ $# -gt 0 ]] || return 1
       return 0
@@ -392,7 +453,7 @@ EOF
   require_cmd openclaw
 
   local session_key
-  session_key="$(resolve_session_identifier "$1")"
+  session_key="$(resolve_launch_session_identifier "$1")"
   shift
 
   exec openclaw tui --session "$session_key" "$@"

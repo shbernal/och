@@ -6,30 +6,42 @@ usage() {
 och, small OpenClaw session helper
 
 Usage:
-  och list-sessions [agent]
-  och get-session-names [agent]
-  och name-session <session-key> [name]
-  och name-sessions [agent]
-  och list-skills [agent]
-  och get-skill <skill-name>
-  och delete-session <session-key>
-  och launch-tui-session <session-key> [openclaw-tui-args...]
+  och session list [--agent <agent>]
+  och session delete <session-key>
+  och session name <session-key> [name]
+  och session name --all [--agent <agent>]
+  och tui <session-key> [openclaw-tui-args...]
+  och skill list [agent]
+  och skill open <skill-name>
+  och skill print <skill-name>
+  och memory list <agent>
+  och memory open <agent> [--note <note>]
+  och memory print <agent> [--note <note>]
+  och heartbeat open|print <agent>
+  och identity open|print <agent>
+  och soul open|print <agent>
+  och tools open|print <agent>
+  och user-file open|print <agent>
+  och agent-file open|print <agent> <relative-path>
   och help
 
 Commands:
-  list-sessions         List session keys for one agent or all agents
-  get-session-names     List session keys with displayName for one agent or all agents
-  name-session          Set displayName for one session, defaulting to the session key
-  name-sessions         Set displayName = session key for one agent or all agents
-  list-skills           List general skills and workspace skills for one agent or all agents
-  get-skill             Open one matching SKILL.md in $EDITOR
-  delete-session        Delete one session entry
-  launch-tui-session    Run openclaw tui for one session
+  session               List, delete, and name OpenClaw sessions
+  tui                   Run openclaw tui for one session
+  skill                 List, open, or print skills
+  memory                List, open, or print MEMORY.md and daily memory notes
+  heartbeat             Open or print HEARTBEAT.md
+  identity              Open or print IDENTITY.md
+  soul                  Open or print SOUL.md
+  tools                 Open or print TOOLS.md
+  user-file             Open or print USER.md
+  agent-file            Open or print any safe relative agent workspace path
 
 Notes:
   - Session files live under ~/.openclaw/agents/<agent>/sessions/sessions.json
   - General skills live under ~/.openclaw/skills/
   - Agent skills live under ~/.openclaw/workspace/<agent>/skills/
+  - print uses glow, then bat, then less/cat fallback
   - In-place JSON updates use jq + sponge
 EOF
 }
@@ -41,6 +53,27 @@ die() {
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
+}
+
+open_file() {
+  [[ $# -eq 1 ]] || die "usage: open_file <path>"
+  [[ -n "${EDITOR:-}" ]] || die 'EDITOR is not set'
+  "$EDITOR" "$1"
+}
+
+print_file() {
+  [[ $# -eq 1 ]] || die "usage: print_file <path>"
+  local file="$1"
+  [[ -f "$file" ]] || die "file not found: $file"
+  if command -v glow >/dev/null 2>&1; then
+    glow "$file"
+  elif command -v bat >/dev/null 2>&1; then
+    bat --style=plain --paging=never "$file"
+  elif [[ -t 1 ]]; then
+    less -R "$file"
+  else
+    cat "$file"
+  fi
 }
 
 setup_colors() {
@@ -329,7 +362,7 @@ cmd_get_session_names() {
 cmd_name_session() {
   require_cmd jq
   require_cmd sponge
-  [[ $# -ge 1 && $# -le 2 ]] || die "usage: och name-session <session-key> [name]"
+  [[ $# -ge 1 && $# -le 2 ]] || die "usage: och session name <session-key> [name]"
   local session_identifier="$1"
   local session_key
   local agent file
@@ -350,6 +383,128 @@ cmd_name_sessions() {
   while IFS= read -r file; do
     jq 'with_entries(.key as $k | .value |= . + { displayName: $k })' "$file" | sponge "$file"
   done < <(session_files_for_scope "$agent")
+}
+
+parse_agent_option() {
+  local usage="$1"
+  shift
+  local agent=""
+  while (($# > 0)); do
+    case "$1" in
+      --agent)
+        shift
+        [[ $# -gt 0 && -n "$1" ]] || die "$usage"
+        agent="$1"
+        ;;
+      --agent=*)
+        agent="${1#--agent=}"
+        [[ -n "$agent" ]] || die "$usage"
+        ;;
+      *)
+        die "$usage"
+        ;;
+    esac
+    shift
+  done
+  printf '%s\n' "$agent"
+}
+
+cmd_session_list() {
+  require_cmd jq
+  local agent file agent_name first=1 count session_key display_name
+  setup_colors
+  agent="$(parse_agent_option "usage: och session list [--agent <agent>]" "$@")"
+  while IFS= read -r file; do
+    agent_name="$(basename "$(dirname "$(dirname "$file")")")"
+    count="$(jq 'keys | length' "$file")"
+    if [[ $first -eq 0 ]]; then
+      printf '\n'
+    fi
+    first=0
+    print_section_header "agent" "$agent_name" "$count" "session"
+    printf '%s%s%s\n' "$C_DIM" "$file" "$C_RESET"
+    if [[ "$count" -eq 0 ]]; then
+      printf '  %s(none)%s\n' "$C_DIM" "$C_RESET"
+      continue
+    fi
+    while IFS=$'\t' read -r session_key display_name; do
+      if [[ -z "$display_name" || "$display_name" == "null" ]]; then
+        printf '  %s- %s%s\n' "$C_ITEM" "$session_key" "$C_RESET"
+      else
+        printf '  %s- %s%s -> %s%s%s\n' "$C_ITEM" "$session_key" "$C_RESET" "$C_VALUE" "$display_name" "$C_RESET"
+      fi
+    done < <(jq -r 'to_entries[] | [.key, (if .value.displayName == null then "" else .value.displayName end)] | @tsv' "$file")
+  done < <(session_files_for_scope "$agent")
+}
+
+cmd_session_name() {
+  local all=0 agent="" args=()
+  while (($# > 0)); do
+    case "$1" in
+      --all)
+        all=1
+        ;;
+      --agent)
+        shift
+        [[ $# -gt 0 && -n "$1" ]] || die "usage: och session name (--all [--agent <agent>] | <session-key> [name])"
+        agent="$1"
+        ;;
+      --agent=*)
+        agent="${1#--agent=}"
+        [[ -n "$agent" ]] || die "usage: och session name (--all [--agent <agent>] | <session-key> [name])"
+        ;;
+      --*)
+        die "usage: och session name (--all [--agent <agent>] | <session-key> [name])"
+        ;;
+      *)
+        args+=("$1")
+        ;;
+    esac
+    shift
+  done
+
+  if ((all)); then
+    ((${#args[@]} == 0)) || die "usage: och session name --all [--agent <agent>]"
+    if [[ -n "$agent" ]]; then
+      cmd_name_sessions "$agent"
+    else
+      cmd_name_sessions
+    fi
+    return
+  fi
+
+  [[ -z "$agent" ]] || die "--agent is only valid with --all"
+  ((${#args[@]} >= 1 && ${#args[@]} <= 2)) || die "usage: och session name <session-key> [name]"
+  cmd_name_session "${args[@]}"
+}
+
+cmd_session() {
+  local sub="${1:-}"
+  [[ -n "$sub" ]] || die "usage: och session <list|delete|name> ..."
+  shift
+  case "$sub" in
+    list)
+      cmd_session_list "$@"
+      ;;
+    delete)
+      cmd_delete_session "$@"
+      ;;
+    name)
+      cmd_session_name "$@"
+      ;;
+    help|-h|--help)
+      cat <<'EOF'
+Usage:
+  och session list [--agent <agent>]
+  och session delete <session-key>
+  och session name <session-key> [name]
+  och session name --all [--agent <agent>]
+EOF
+      ;;
+    *)
+      die "unknown session command: $sub"
+      ;;
+  esac
 }
 
 cmd_list_skills() {
@@ -384,9 +539,8 @@ cmd_list_skills() {
   done < <(skill_dirs_for_scope "$agent")
 }
 
-cmd_get_skill() {
-  [[ $# -eq 1 ]] || die "usage: och get-skill <skill-name>"
-  [[ -n "${EDITOR:-}" ]] || die 'EDITOR is not set'
+resolve_skill_file() {
+  [[ $# -eq 1 ]] || die "usage: resolve_skill_file <skill-name>"
   local skill_name="$1"
   local general_dir="$HOME/.openclaw/skills"
   local workspace_dir="$HOME/.openclaw/workspace"
@@ -406,7 +560,7 @@ cmd_get_skill() {
       die "skill not found: $skill_name"
       ;;
     1)
-      "$EDITOR" "${matches[0]}"
+      printf '%s\n' "${matches[0]}"
       ;;
     *)
       printf 'och: several skills match %s\n' "$skill_name" >&2
@@ -416,10 +570,283 @@ cmd_get_skill() {
   esac
 }
 
+cmd_skill_open() {
+  [[ $# -eq 1 ]] || die "usage: och skill open <skill-name>"
+  local file
+  file="$(resolve_skill_file "$1")"
+  open_file "$file"
+}
+
+cmd_skill_print() {
+  [[ $# -eq 1 ]] || die "usage: och skill print <skill-name>"
+  local file
+  file="$(resolve_skill_file "$1")"
+  print_file "$file"
+}
+
+cmd_skill() {
+  local sub="${1:-}"
+  [[ -n "$sub" ]] || die "usage: och skill <list|open|print> ..."
+  shift
+  case "$sub" in
+    list)
+      cmd_list_skills "$@"
+      ;;
+    open)
+      cmd_skill_open "$@"
+      ;;
+    print)
+      cmd_skill_print "$@"
+      ;;
+    help|-h|--help)
+      cat <<'EOF'
+Usage:
+  och skill list [agent]
+  och skill open <skill-name>
+  och skill print <skill-name>
+EOF
+      ;;
+    *)
+      die "unknown skill command: $sub"
+      ;;
+  esac
+}
+
+agent_workspace_dir() {
+  local agent="$1"
+  local dir="$HOME/.openclaw/workspace/$agent"
+  [[ -d "$dir" ]] || die "agent workspace not found: $dir"
+  printf '%s\n' "$dir"
+}
+
+agent_workspace_file() {
+  [[ $# -eq 2 ]] || die "usage: agent_workspace_file <agent> <relative-path>"
+  local agent="$1"
+  local rel_path="$2"
+  case "$rel_path" in
+    ""|/*|*../*|../*|*/..|..)
+      die "file path must be relative and stay inside the agent workspace"
+      ;;
+  esac
+  local workspace target parent
+  workspace="$(agent_workspace_dir "$agent")"
+  target="$workspace/$rel_path"
+  parent="$(dirname "$target")"
+  [[ -d "$parent" ]] || die "parent directory not found: $parent"
+  printf '%s\n' "$target"
+}
+
+cmd_agent_file_open() {
+  [[ $# -eq 2 ]] || die "usage: och agent-file open <agent> <relative-path>"
+  local file
+  file="$(agent_workspace_file "$1" "$2")"
+  open_file "$file"
+}
+
+cmd_agent_file_print() {
+  [[ $# -eq 2 ]] || die "usage: och agent-file print <agent> <relative-path>"
+  local file
+  file="$(agent_workspace_file "$1" "$2")"
+  print_file "$file"
+}
+
+cmd_agent_file() {
+  local sub="${1:-}"
+  [[ -n "$sub" ]] || die "usage: och agent-file <open|print> <agent> <relative-path>"
+  shift
+  case "$sub" in
+    open)
+      cmd_agent_file_open "$@"
+      ;;
+    print)
+      cmd_agent_file_print "$@"
+      ;;
+    help|-h|--help)
+      cat <<'EOF'
+Usage:
+  och agent-file open <agent> <relative-path>
+  och agent-file print <agent> <relative-path>
+EOF
+      ;;
+    *)
+      die "unknown agent-file command: $sub"
+      ;;
+  esac
+}
+
+cmd_workspace_file() {
+  local rel_path="$1"
+  local noun="$2"
+  local sub="${3:-}"
+  [[ -n "$sub" ]] || die "usage: och $noun <open|print> <agent>"
+  shift 3
+  case "$sub" in
+    open)
+      [[ $# -eq 1 ]] || die "usage: och $noun open <agent>"
+      local file
+      file="$(agent_workspace_file "$1" "$rel_path")"
+      open_file "$file"
+      ;;
+    print)
+      [[ $# -eq 1 ]] || die "usage: och $noun print <agent>"
+      local file
+      file="$(agent_workspace_file "$1" "$rel_path")"
+      print_file "$file"
+      ;;
+    help|-h|--help)
+      printf 'Usage:\n  och %s open <agent>\n  och %s print <agent>\n' "$noun" "$noun"
+      ;;
+    *)
+      die "unknown $noun command: $sub"
+      ;;
+  esac
+}
+
+memory_dir_for_agent() {
+  local agent="$1"
+  local dir
+  dir="$(agent_workspace_dir "$agent")/memory"
+  [[ -d "$dir" ]] || die "memory directory not found: $dir"
+  printf '%s\n' "$dir"
+}
+
+cmd_memory_list() {
+  [[ $# -eq 1 ]] || die "usage: och memory list <agent>"
+  local dir file count=0
+  dir="$(memory_dir_for_agent "$1")"
+  shopt -s nullglob
+  local files=("$dir"/*.md)
+  shopt -u nullglob
+  printf '%s\n' "$dir"
+  if ((${#files[@]} == 0)); then
+    printf '  (none)\n'
+    return
+  fi
+  for file in "${files[@]}"; do
+    printf '  - %s\n' "$(basename "$file")"
+    count=$((count + 1))
+  done
+}
+
+resolve_memory_note_file() {
+  [[ $# -eq 2 ]] || die "usage: resolve_memory_note_file <agent> <note>"
+  local agent="$1"
+  local note="$2"
+  local dir candidate stem
+  local matches=()
+  [[ -n "$note" ]] || die "memory note cannot be empty"
+  case "$note" in
+    */*|..|*../*|../*|*/..)
+      die "memory note must be a filename or date prefix, not a path"
+      ;;
+  esac
+  dir="$(memory_dir_for_agent "$agent")"
+  if [[ -f "$dir/$note" ]]; then
+    printf '%s\n' "$dir/$note"
+    return
+  fi
+  if [[ "$note" != *.md && -f "$dir/$note.md" ]]; then
+    printf '%s\n' "$dir/$note.md"
+    return
+  fi
+  stem="${note%.md}"
+  shopt -s nullglob
+  matches=("$dir"/"$stem"*.md)
+  shopt -u nullglob
+  case "${#matches[@]}" in
+    0)
+      die "memory note not found: $note"
+      ;;
+    1)
+      printf '%s\n' "${matches[0]}"
+      ;;
+    *)
+      printf 'och: memory note is ambiguous: %s\n' "$note" >&2
+      printf 'och: matching notes:\n' >&2
+      printf '  %s\n' "${matches[@]##*/}" >&2
+      return 1
+      ;;
+  esac
+}
+
+memory_target_file() {
+  local usage="$1"
+  shift
+  [[ $# -ge 1 ]] || die "$usage"
+  local agent="$1"
+  shift
+  local note=""
+  while (($# > 0)); do
+    case "$1" in
+      --note)
+        shift
+        [[ $# -gt 0 && -n "$1" ]] || die "$usage"
+        note="$1"
+        ;;
+      --note=*)
+        note="${1#--note=}"
+        [[ -n "$note" ]] || die "$usage"
+        ;;
+      *)
+        die "$usage"
+        ;;
+    esac
+    shift
+  done
+  if [[ -n "$note" ]]; then
+    resolve_memory_note_file "$agent" "$note"
+  else
+    agent_workspace_file "$agent" "MEMORY.md"
+  fi
+}
+
+cmd_memory_open() {
+  local file
+  file="$(memory_target_file "usage: och memory open <agent> [--note <note>]" "$@")"
+  open_file "$file"
+}
+
+cmd_memory_print() {
+  local file
+  file="$(memory_target_file "usage: och memory print <agent> [--note <note>]" "$@")"
+  print_file "$file"
+}
+
+cmd_memory() {
+  local sub="${1:-}"
+  [[ -n "$sub" ]] || die "usage: och memory <list|open|print> ..."
+  shift
+  case "$sub" in
+    list)
+      cmd_memory_list "$@"
+      ;;
+    open)
+      cmd_memory_open "$@"
+      ;;
+    print)
+      cmd_memory_print "$@"
+      ;;
+    help|-h|--help)
+      cat <<'EOF'
+Usage:
+  och memory list <agent>
+  och memory open <agent> [--note <note>]
+  och memory print <agent> [--note <note>]
+
+Notes:
+  --note accepts a full filename, filename without .md, or unambiguous date prefix.
+EOF
+      ;;
+    *)
+      die "unknown memory command: $sub"
+      ;;
+  esac
+}
+
 cmd_delete_session() {
   require_cmd jq
   require_cmd sponge
-  [[ $# -eq 1 ]] || die "usage: och delete-session <session-key>"
+  [[ $# -eq 1 ]] || die "usage: och session delete <session-key>"
   local session_identifier="$1"
   local session_key
   local agent file
@@ -436,8 +863,8 @@ cmd_launch_tui_session() {
     -h|--help|"")
       cat <<'EOF'
 Usage:
-  och launch-tui-session <session-key> [openclaw-tui-args...]
-  och launch-tui-session -h|--help
+  och tui <session-key> [openclaw-tui-args...]
+  och tui -h|--help
 
 Wraps:
   openclaw tui --session <resolved-session-key> [openclaw-tui-args...]
@@ -462,41 +889,45 @@ EOF
 main() {
   local cmd="${1:-help}"
   case "$cmd" in
-    list-sessions)
+    session)
       shift
-      cmd_list_sessions "$@"
+      cmd_session "$@"
       ;;
-    ls-sessions)
-      shift
-      cmd_list_sessions "$@"
-      ;;
-    get-session-names)
-      shift
-      cmd_get_session_names "$@"
-      ;;
-    name-session)
-      shift
-      cmd_name_session "$@"
-      ;;
-    name-sessions)
-      shift
-      cmd_name_sessions "$@"
-      ;;
-    list-skills|ls-skills)
-      shift
-      cmd_list_skills "$@"
-      ;;
-    get-skill|get-agent-skill)
-      shift
-      cmd_get_skill "$@"
-      ;;
-    delete-session)
-      shift
-      cmd_delete_session "$@"
-      ;;
-    launch-tui-session)
+    tui)
       shift
       cmd_launch_tui_session "$@"
+      ;;
+    skill)
+      shift
+      cmd_skill "$@"
+      ;;
+    memory)
+      shift
+      cmd_memory "$@"
+      ;;
+    heartbeat)
+      shift
+      cmd_workspace_file "HEARTBEAT.md" "heartbeat" "$@"
+      ;;
+    identity)
+      shift
+      cmd_workspace_file "IDENTITY.md" "identity" "$@"
+      ;;
+    soul)
+      shift
+      cmd_workspace_file "SOUL.md" "soul" "$@"
+      ;;
+    tools)
+      shift
+      cmd_workspace_file "TOOLS.md" "tools" "$@"
+      ;;
+    user-file)
+      shift
+      cmd_workspace_file "USER.md" "user-file" "$@"
+      ;;
+    agent-file)
+      shift
+      cmd_agent_file "$@"
       ;;
     help|-h|--help)
       usage

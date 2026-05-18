@@ -15,8 +15,6 @@ _och_command_aliases() {
   printf '%s\n' \
     ls-sessions \
     ls-skills \
-    list-agent-skills \
-    ls-agent-skills \
     get-agent-skill
 }
 
@@ -114,7 +112,7 @@ $(_och_command_aliases)" -- "$cur") )
   fi
 
   case "${words[1]}" in
-    list-sessions|ls-sessions|get-session-names|name-sessions|list-skills|ls-skills|list-agent-skills|ls-agent-skills)
+    list-sessions|ls-sessions|get-session-names|name-sessions|list-skills|ls-skills)
       if (( cword == 2 )); then
         COMPREPLY=( $(compgen -W "$(_och_agents)" -- "$cur") )
       fi

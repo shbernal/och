@@ -482,7 +482,7 @@ main() {
       shift
       cmd_name_sessions "$@"
       ;;
-    list-skills|ls-skills|list-agent-skills|ls-agent-skills)
+    list-skills|ls-skills)
       shift
       cmd_list_skills "$@"
       ;;

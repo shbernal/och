@@ -1,6 +1,7 @@
 _och_commands() {
   printf '%s\n' \
     session \
+    workspace \
     tui \
     skill \
     memory \
@@ -145,6 +146,24 @@ _och() {
               elif (( cword == 3 )); then
                 COMPREPLY=( $(compgen -W "--all" -- "$cur") )
                 _och_complete_session_target
+              fi
+              ;;
+          esac
+          ;;
+      esac
+      ;;
+    workspace)
+      case "$cword" in
+        2)
+          COMPREPLY=( $(compgen -W "status help" -- "$cur") )
+          ;;
+        *)
+          case "${words[2]}" in
+            status)
+              if [[ "$prev" == "--agent" ]]; then
+                COMPREPLY=( $(compgen -W "$(_och_agents)" -- "$cur") )
+              elif [[ "$cur" == --* || -z "$cur" ]]; then
+                COMPREPLY=( $(compgen -W "--agent" -- "$cur") )
               fi
               ;;
           esac

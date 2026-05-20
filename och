@@ -10,6 +10,7 @@ Usage:
   och session delete <session-key>
   och session name <session-key> [name]
   och session name --all [--agent <agent>]
+  och workspace status [--agent <agent>]
   och tui <session-key> [openclaw-tui-args...]
   och skill list [agent]
   och skill open <skill-name>
@@ -27,6 +28,7 @@ Usage:
 
 Commands:
   session               List, delete, and name OpenClaw sessions
+  workspace             Show Git status for agent workspaces
   tui                   Run openclaw tui for one session
   skill                 List, open, or print skills
   memory                List, open, or print MEMORY.md and daily memory notes
@@ -41,6 +43,7 @@ Notes:
   - Session files live under ~/.openclaw/agents/<agent>/sessions/sessions.json
   - General skills live under ~/.openclaw/skills/
   - Agent skills live under ~/.openclaw/workspace/<agent>/skills/
+  - Agent workspaces live under ~/.openclaw/workspace/<agent>/
   - print uses glow, then bat, then less/cat fallback
   - In-place JSON updates use jq + sponge
 EOF
@@ -507,6 +510,87 @@ EOF
   esac
 }
 
+find_workspace_dirs() {
+  local base_dir="$HOME/.openclaw/workspace"
+  local dirs=()
+  shopt -s nullglob
+  dirs=("$base_dir"/*)
+  shopt -u nullglob
+  for dir in "${dirs[@]}"; do
+    [[ -d "$dir" ]] && printf '%s\n' "$dir"
+  done
+}
+
+all_workspace_dirs() {
+  local base_dir="$HOME/.openclaw/workspace"
+  local dirs=()
+  mapfile -t dirs < <(find_workspace_dirs)
+  ((${#dirs[@]} > 0)) || die "no workspace directories found under: $base_dir"
+  printf '%s\n' "${dirs[@]}"
+}
+
+workspace_dirs_for_scope() {
+  local agent="$1"
+  if [[ -n "$agent" ]]; then
+    agent_workspace_dir "$agent"
+  else
+    all_workspace_dirs
+  fi
+}
+
+cmd_workspace_status() {
+  require_cmd git
+  local agent dir agent_name first=1 found=0 status line
+  setup_colors
+  agent="$(parse_agent_option "usage: och workspace status [--agent <agent>]" "$@")"
+  while IFS= read -r dir; do
+    [[ -n "$dir" ]] || continue
+    if ! git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      continue
+    fi
+    found=1
+    agent_name="$(basename "$dir")"
+    if [[ $first -eq 0 ]]; then
+      printf '\n'
+    fi
+    first=0
+    printf '%s== %sagent%s %s%s ==%s\n' "$C_HEADER" "$C_LABEL" "$C_HEADER" "$agent_name" "$C_HEADER" "$C_RESET"
+    printf '%s%s%s\n' "$C_DIM" "$dir" "$C_RESET"
+    if ! status="$(git -C "$dir" status --short --branch)"; then
+      printf '  %s(git status failed)%s\n' "$C_DIM" "$C_RESET"
+      continue
+    fi
+    if [[ -z "$status" ]]; then
+      printf '  %s(clean)%s\n' "$C_DIM" "$C_RESET"
+      continue
+    fi
+    while IFS= read -r line; do
+      printf '  %s\n' "$line"
+    done <<< "$status"
+  done < <(workspace_dirs_for_scope "$agent")
+  ((found)) || die "no git workspaces found under: $HOME/.openclaw/workspace"
+}
+
+cmd_workspace() {
+  local sub="${1:-}"
+  [[ -n "$sub" ]] || die "usage: och workspace <status> ..."
+  shift
+  case "$sub" in
+    status)
+      cmd_workspace_status "$@"
+      ;;
+    help|-h|--help)
+      cat <<'EOF'
+Usage:
+  och workspace status [--agent <agent>]
+EOF
+      ;;
+    *)
+      die "unknown workspace command: $sub"
+      ;;
+  esac
+}
+
 cmd_list_skills() {
   local agent dir skill scope_name scope_label first=1 count
   setup_colors
@@ -892,6 +976,10 @@ main() {
     session)
       shift
       cmd_session "$@"
+      ;;
+    workspace)
+      shift
+      cmd_workspace "$@"
       ;;
     tui)
       shift

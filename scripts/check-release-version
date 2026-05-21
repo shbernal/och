@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+die() {
+  printf 'check-release-version: %s\n' "$*" >&2
+  exit 1
+}
+
+command -v git >/dev/null 2>&1 || die 'required command not found: git'
+command -v node >/dev/null 2>&1 || die 'required command not found: node'
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  die 'working tree is not clean; commit or stash changes before release'
+fi
+
+package_version="$(node -p "require('./package.json').version")"
+[[ -n "$package_version" ]] || die 'package.json version is empty'
+
+release="${1:-}"
+if [[ -n "$release" ]]; then
+  if [[ "$release" == v* ]]; then
+    tag="$release"
+    release_version="${release#v}"
+  else
+    tag="v$release"
+    release_version="$release"
+  fi
+
+  [[ -n "$release_version" ]] || die 'release version is empty'
+
+  if [[ "$release_version" != "$package_version" ]]; then
+    die "release $tag expects package.json $release_version, but package.json is $package_version"
+  fi
+
+  if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+    die "tag already exists: $tag"
+  fi
+
+  printf 'release version ok: package.json is %s; ready to tag %s\n' "$package_version" "$tag"
+  exit 0
+fi
+
+tag="$(git describe --tags --exact-match HEAD 2>/dev/null)" \
+  || die 'HEAD is not exactly tagged; pass a release version before creating the tag'
+
+[[ "$tag" == v* ]] || die "release tag must start with v: $tag"
+
+tag_version="${tag#v}"
+
+if [[ "$tag_version" != "$package_version" ]]; then
+  die "tag $tag resolves to $tag_version, but package.json is $package_version"
+fi
+
+printf 'release tag ok: %s matches package.json\n' "$tag"

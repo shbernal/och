@@ -104,3 +104,23 @@ och agent-file print <TAB>
 ```
 
 For session-taking commands, completion offers both raw session keys and named sessions. After installation, reload completion or start a new shell before testing.
+
+## Release Guard
+
+Before creating a release tag, verify that the intended version matches
+`package.json.version`:
+
+```bash
+make check-release VERSION=0.1.5
+git tag v0.1.5
+```
+
+After creating the tag, the same target can verify that `HEAD` is exactly tagged
+with the matching version:
+
+```bash
+make check-release
+```
+
+The guard checks that the working tree is clean and that the release version
+matches `package.json`.

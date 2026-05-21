@@ -1,6 +1,6 @@
 {
   "name": "@shbernal/och",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Small OpenClaw helper CLI",
   "license": "MIT",
   "bin": {

@@ -1,0 +1,65 @@
+name: Publish to npm
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish package
+    if: github.repository == 'shbernal/och' && (github.event_name == 'release' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    environment: npm-publish
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm install -g npm@latest
+          npm --version
+
+      - name: Test
+        run: npm test
+
+      - name: Verify package contents
+        run: npm pack --dry-run --ignore-scripts
+
+      - name: Verify release tag matches package version
+        if: github.event_name == 'release'
+        run: |
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+
+          if [ "$GITHUB_REF_NAME" != "v$PACKAGE_VERSION" ] && [ "$GITHUB_REF_NAME" != "$PACKAGE_VERSION" ]; then
+            echo "::error::Release tag '$GITHUB_REF_NAME' does not match package version '$PACKAGE_VERSION'."
+            exit 1
+          fi
+
+      - name: Verify version is unpublished
+        run: |
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+
+          if npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version >/dev/null 2>&1; then
+            echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION is already published on npm."
+            exit 1
+          fi
+
+      - name: Publish to npm
+        run: npm publish --access public --provenance --ignore-scripts

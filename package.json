@@ -1,10 +1,14 @@
 {
   "name": "@shbernal/och",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Small OpenClaw helper CLI",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shbernal/och.git"
+  },
   "bin": {
-    "och": "./bin/och.js"
+    "och": "bin/och.js"
   },
   "files": [
     "bin/och.js",

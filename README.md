@@ -111,8 +111,8 @@ Before creating a release tag, verify that the intended version matches
 `package.json.version`:
 
 ```bash
-make check-release VERSION=0.1.6
-git tag v0.1.6
+make check-release VERSION=0.1.7
+git tag v0.1.7
 ```
 
 After creating the tag, the same target can verify that `HEAD` is exactly tagged

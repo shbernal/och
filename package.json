@@ -1,0 +1,25 @@
+{
+  "name": "@shbernal/och",
+  "version": "0.1.5",
+  "description": "Small OpenClaw helper CLI",
+  "license": "MIT",
+  "bin": {
+    "och": "./bin/och.js"
+  },
+  "files": [
+    "bin/och.js",
+    "och",
+    "completions/och.bash",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "make test && node --check bin/och.js",
+    "prepack": "npm test"
+  },
+  "keywords": [
+    "openclaw",
+    "cli",
+    "shell"
+  ]
+}

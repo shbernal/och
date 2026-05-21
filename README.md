@@ -69,6 +69,16 @@ That installs:
 - `och` to `~/.local/bin/och`
 - Bash completion to `~/.local/share/bash-completion/completions/och`
 
+For npm-based installs:
+
+```bash
+npm install -g @shbernal/och
+```
+
+The npm package installs a small Node wrapper that runs the bundled Bash CLI.
+System dependencies still need to be available on `PATH`: `bash`, `jq`, and
+`sponge` from `moreutils`.
+
 ## Bash Completion
 
 If your shell loads `bash-completion`, `make install-user` is enough for the `och` symlink in `~/.local/bin` to pick up completions automatically.

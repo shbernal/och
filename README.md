@@ -22,6 +22,8 @@ och memory list <agent>
 och memory open <agent> [--note <note>]
 och memory print <agent> [--note <note>]
 
+och agentsmd open <agent>
+och agentsmd print <agent>
 och heartbeat open <agent>
 och heartbeat print <agent>
 och identity open <agent>
@@ -30,11 +32,11 @@ och soul open <agent>
 och soul print <agent>
 och tools open <agent>
 och tools print <agent>
-och user-file open <agent>
-och user-file print <agent>
+och usermd open <agent>
+och usermd print <agent>
 
-och agent-file open <agent> <relative-path>
-och agent-file print <agent> <relative-path>
+och file open <agent> <relative-path>
+och file print <agent> <relative-path>
 ```
 
 ## Notes
@@ -43,7 +45,7 @@ och agent-file print <agent> <relative-path>
 - `print` uses `glow` when available, then `bat`, then `less -R` for TTY output, then `cat`.
 - `memory --note` accepts a full filename, a filename without `.md`, or an unambiguous date/name prefix.
 - `workspace status` prints `git status --short --branch` for each Git workspace under `~/.openclaw/workspace/`.
-- `agent-file` only accepts safe relative paths under the agent workspace.
+- `file` only accepts safe relative paths under the agent workspace.
 - Session files live under `~/.openclaw/agents/<agent>/sessions/sessions.json`.
 - Agent workspace files live under `~/.openclaw/workspace/<agent>/`.
 
@@ -100,7 +102,7 @@ och session list --agent <TAB>
 och skill open <TAB>
 och memory print amalia --note <TAB>
 och heartbeat open <TAB>
-och agent-file print <TAB>
+och file print <TAB>
 ```
 
 For session-taking commands, completion offers both raw session keys and named sessions. After installation, reload completion or start a new shell before testing.

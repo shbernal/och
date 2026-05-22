@@ -5,12 +5,13 @@ _och_commands() {
     tui \
     skill \
     memory \
+    agentsmd \
     heartbeat \
     identity \
     soul \
     tools \
-    user-file \
-    agent-file \
+    usermd \
+    file \
     help
 }
 
@@ -220,7 +221,7 @@ _och() {
           ;;
       esac
       ;;
-    heartbeat|identity|soul|tools|user-file)
+    agentsmd|heartbeat|identity|soul|tools|usermd)
       case "$cword" in
         2)
           COMPREPLY=( $(compgen -W "open print help" -- "$cur") )
@@ -230,7 +231,7 @@ _och() {
           ;;
       esac
       ;;
-    agent-file)
+    file)
       case "$cword" in
         2)
           COMPREPLY=( $(compgen -W "open print help" -- "$cur") )

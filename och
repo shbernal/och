@@ -18,12 +18,13 @@ Usage:
   och memory list <agent>
   och memory open <agent> [--note <note>]
   och memory print <agent> [--note <note>]
+  och agentsmd open|print <agent>
   och heartbeat open|print <agent>
   och identity open|print <agent>
   och soul open|print <agent>
   och tools open|print <agent>
-  och user-file open|print <agent>
-  och agent-file open|print <agent> <relative-path>
+  och usermd open|print <agent>
+  och file open|print <agent> <relative-path>
   och help
 
 Commands:
@@ -32,12 +33,13 @@ Commands:
   tui                   Run openclaw tui for one session
   skill                 List, open, or print skills
   memory                List, open, or print MEMORY.md and daily memory notes
+  agentsmd              Open or print AGENTS.md
   heartbeat             Open or print HEARTBEAT.md
   identity              Open or print IDENTITY.md
   soul                  Open or print SOUL.md
   tools                 Open or print TOOLS.md
-  user-file             Open or print USER.md
-  agent-file            Open or print any safe relative agent workspace path
+  usermd                Open or print USER.md
+  file                  Open or print any safe relative agent workspace path
 
 Notes:
   - Session files live under ~/.openclaw/agents/<agent>/sessions/sessions.json
@@ -720,40 +722,40 @@ agent_workspace_file() {
   printf '%s\n' "$target"
 }
 
-cmd_agent_file_open() {
-  [[ $# -eq 2 ]] || die "usage: och agent-file open <agent> <relative-path>"
+cmd_file_open() {
+  [[ $# -eq 2 ]] || die "usage: och file open <agent> <relative-path>"
   local file
   file="$(agent_workspace_file "$1" "$2")"
   open_file "$file"
 }
 
-cmd_agent_file_print() {
-  [[ $# -eq 2 ]] || die "usage: och agent-file print <agent> <relative-path>"
+cmd_file_print() {
+  [[ $# -eq 2 ]] || die "usage: och file print <agent> <relative-path>"
   local file
   file="$(agent_workspace_file "$1" "$2")"
   print_file "$file"
 }
 
-cmd_agent_file() {
+cmd_file() {
   local sub="${1:-}"
-  [[ -n "$sub" ]] || die "usage: och agent-file <open|print> <agent> <relative-path>"
+  [[ -n "$sub" ]] || die "usage: och file <open|print> <agent> <relative-path>"
   shift
   case "$sub" in
     open)
-      cmd_agent_file_open "$@"
+      cmd_file_open "$@"
       ;;
     print)
-      cmd_agent_file_print "$@"
+      cmd_file_print "$@"
       ;;
     help|-h|--help)
       cat <<'EOF'
 Usage:
-  och agent-file open <agent> <relative-path>
-  och agent-file print <agent> <relative-path>
+  och file open <agent> <relative-path>
+  och file print <agent> <relative-path>
 EOF
       ;;
     *)
-      die "unknown agent-file command: $sub"
+      die "unknown file command: $sub"
       ;;
   esac
 }
@@ -993,6 +995,10 @@ main() {
       shift
       cmd_memory "$@"
       ;;
+    agentsmd)
+      shift
+      cmd_workspace_file "AGENTS.md" "agentsmd" "$@"
+      ;;
     heartbeat)
       shift
       cmd_workspace_file "HEARTBEAT.md" "heartbeat" "$@"
@@ -1009,13 +1015,13 @@ main() {
       shift
       cmd_workspace_file "TOOLS.md" "tools" "$@"
       ;;
-    user-file)
+    usermd)
       shift
-      cmd_workspace_file "USER.md" "user-file" "$@"
+      cmd_workspace_file "USER.md" "usermd" "$@"
       ;;
-    agent-file)
+    file)
       shift
-      cmd_agent_file "$@"
+      cmd_file "$@"
       ;;
     help|-h|--help)
       usage

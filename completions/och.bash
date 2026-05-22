@@ -156,7 +156,7 @@ _och() {
     workspace)
       case "$cword" in
         2)
-          COMPREPLY=( $(compgen -W "status help" -- "$cur") )
+          COMPREPLY=( $(compgen -W "status open help" -- "$cur") )
           ;;
         *)
           case "${words[2]}" in
@@ -165,6 +165,11 @@ _och() {
                 COMPREPLY=( $(compgen -W "$(_och_agents)" -- "$cur") )
               elif [[ "$cur" == --* || -z "$cur" ]]; then
                 COMPREPLY=( $(compgen -W "--agent" -- "$cur") )
+              fi
+              ;;
+            open)
+              if (( cword == 3 )); then
+                COMPREPLY=( $(compgen -W "$(_och_agents)" -- "$cur") )
               fi
               ;;
           esac

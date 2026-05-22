@@ -11,6 +11,7 @@ Usage:
   och session name <session-key> [name]
   och session name --all [--agent <agent>]
   och workspace status [--agent <agent>]
+  och workspace open <agent>
   och tui <session-key> [openclaw-tui-args...]
   och skill list [agent]
   och skill open <skill-name>
@@ -29,7 +30,7 @@ Usage:
 
 Commands:
   session               List, delete, and name OpenClaw sessions
-  workspace             Show Git status for agent workspaces
+  workspace             Open or show Git status for agent workspaces
   tui                   Run openclaw tui for one session
   skill                 List, open, or print skills
   memory                List, open, or print MEMORY.md and daily memory notes
@@ -573,18 +574,29 @@ cmd_workspace_status() {
   ((found)) || die "no git workspaces found under: $HOME/.openclaw/workspace"
 }
 
+cmd_workspace_open() {
+  [[ $# -eq 1 ]] || die "usage: och workspace open <agent>"
+  local dir
+  dir="$(agent_workspace_dir "$1")"
+  open_file "$dir"
+}
+
 cmd_workspace() {
   local sub="${1:-}"
-  [[ -n "$sub" ]] || die "usage: och workspace <status> ..."
+  [[ -n "$sub" ]] || die "usage: och workspace <status|open> ..."
   shift
   case "$sub" in
     status)
       cmd_workspace_status "$@"
       ;;
+    open)
+      cmd_workspace_open "$@"
+      ;;
     help|-h|--help)
       cat <<'EOF'
 Usage:
   och workspace status [--agent <agent>]
+  och workspace open <agent>
 EOF
       ;;
     *)

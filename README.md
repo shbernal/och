@@ -11,6 +11,7 @@ och session name <session-key> [name]
 och session name --all [--agent <agent>]
 
 och workspace status [--agent <agent>]
+och workspace open <agent>
 
 och tui <session-key> [openclaw-tui-args...]
 
@@ -45,6 +46,7 @@ och file print <agent> <relative-path>
 - `print` uses `glow` when available, then `bat`, then `less -R` for TTY output, then `cat`.
 - `memory --note` accepts a full filename, a filename without `.md`, or an unambiguous date/name prefix.
 - `workspace status` prints `git status --short --branch` for each Git workspace under `~/.openclaw/workspace/`.
+- `workspace open` opens the editor in `~/.openclaw/workspace/<agent>/`.
 - `file` only accepts safe relative paths under the agent workspace.
 - Session files live under `~/.openclaw/agents/<agent>/sessions/sessions.json`.
 - Agent workspace files live under `~/.openclaw/workspace/<agent>/`.

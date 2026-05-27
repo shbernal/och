@@ -1,5 +1,8 @@
 # Open Claw Helper
 
+[![weekly downloads](https://img.shields.io/npm/dw/%40shbernal%2Foch.svg?label=npm%20downloads&logo=npm)](https://www.npmjs.com/package/@shbernal/och)
+[![total downloads](https://img.shields.io/npm/dt/%40shbernal%2Foch.svg?label=npm%20total%20downloads&logo=npm)](https://www.npmjs.com/package/@shbernal/och)
+
 Small OpenClaw helper CLI for session management, skill browsing, workspace files, and TUI launch shortcuts.
 
 ## Commands
@@ -102,7 +105,7 @@ och <TAB>
 och session <TAB>
 och session list --agent <TAB>
 och skill open <TAB>
-och memory print amalia --note <TAB>
+och memory print <agent> --note <TAB>
 och heartbeat open <TAB>
 och file print <TAB>
 ```

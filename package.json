@@ -1,7 +1,7 @@
 {
   "name": "@shbernal/och",
   "version": "0.1.7",
-  "description": "Small OpenClaw helper CLI",
+  "description": "Small helper for OpenClaw TUI session management.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -24,6 +24,9 @@
   "keywords": [
     "openclaw",
     "cli",
-    "shell"
+    "shell",
+    "productivity",
+    "session-management",
+    "developer-tools"
   ]
 }

@@ -2,6 +2,7 @@
 
 [![weekly downloads](https://img.shields.io/npm/dw/%40shbernal%2Foch.svg?label=npm%20downloads&logo=npm)](https://www.npmjs.com/package/@shbernal/och)
 [![total downloads](https://img.shields.io/npm/dt/%40shbernal%2Foch.svg?label=npm%20total%20downloads&logo=npm)](https://www.npmjs.com/package/@shbernal/och)
+[![AUR version](https://img.shields.io/aur/version/och)](https://aur.archlinux.org/packages/och)
 
 Small OpenClaw helper CLI for session management, skill browsing, workspace files, and TUI launch shortcuts.
 

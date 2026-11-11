@@ -313,58 +313,6 @@ resolve_launch_session_identifier() {
   printf '%s\n' "$identifier"
 }
 
-cmd_list_sessions() {
-  require_cmd jq
-  local agent file agent_name first=1 count
-  setup_colors
-  agent="$(parse_optional_agent "$@")"
-  while IFS= read -r file; do
-    agent_name="$(basename "$(dirname "$(dirname "$file")")")"
-    count="$(jq 'keys | length' "$file")"
-    if [[ $first -eq 0 ]]; then
-      printf '\n'
-    fi
-    first=0
-    print_section_header "agent" "$agent_name" "$count" "session"
-    printf '%s%s%s\n' "$C_DIM" "$file" "$C_RESET"
-    if [[ "$count" -eq 0 ]]; then
-      printf '  %s(none)%s\n' "$C_DIM" "$C_RESET"
-      continue
-    fi
-    jq -r 'keys[]' "$file" | while IFS= read -r session_key; do
-      printf '  %s- %s%s\n' "$C_ITEM" "$session_key" "$C_RESET"
-    done
-  done < <(session_files_for_scope "$agent")
-}
-
-cmd_get_session_names() {
-  require_cmd jq
-  local agent file agent_name first=1 count line session_key display_name
-  setup_colors
-  agent="$(parse_optional_agent "$@")"
-  while IFS= read -r file; do
-    agent_name="$(basename "$(dirname "$(dirname "$file")")")"
-    count="$(jq 'keys | length' "$file")"
-    if [[ $first -eq 0 ]]; then
-      printf '\n'
-    fi
-    first=0
-    print_section_header "agent" "$agent_name" "$count" "session"
-    printf '%s%s%s\n' "$C_DIM" "$file" "$C_RESET"
-    if [[ "$count" -eq 0 ]]; then
-      printf '  %s(none)%s\n' "$C_DIM" "$C_RESET"
-      continue
-    fi
-    while IFS=$'\t' read -r session_key display_name; do
-      if [[ "$display_name" == "null" ]]; then
-        printf '  %s- %s%s -> %snull%s\n' "$C_ITEM" "$session_key" "$C_RESET" "$C_DIM" "$C_RESET"
-      else
-        printf '  %s- %s%s -> %s%s%s\n' "$C_ITEM" "$session_key" "$C_RESET" "$C_VALUE" "$display_name" "$C_RESET"
-      fi
-    done < <(jq -r 'to_entries[] | [.key, (if .value.displayName == null then "null" else .value.displayName end)] | @tsv' "$file")
-  done < <(session_files_for_scope "$agent")
-}
-
 cmd_name_session() {
   require_cmd jq
   require_cmd sponge

@@ -1,3 +1,5 @@
+# shellcheck shell=bash disable=SC2207  # COMPREPLY=( $(compgen ...) ) is the completion idiom
+
 _och_commands() {
   printf '%s\n' \
     session \

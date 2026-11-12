@@ -670,7 +670,7 @@ agent_workspace_file() {
   local agent="$1"
   local rel_path="$2"
   case "$rel_path" in
-    ""|/*|*../*|../*|*/..|..)
+    ""|/*|..|../*|*/..|*/../*)
       die "file path must be relative and stay inside the agent workspace"
       ;;
   esac
@@ -778,11 +778,11 @@ resolve_memory_note_file() {
   [[ $# -eq 2 ]] || die "usage: resolve_memory_note_file <agent> <note>"
   local agent="$1"
   local note="$2"
-  local dir candidate stem
+  local dir stem
   local matches=()
   [[ -n "$note" ]] || die "memory note cannot be empty"
   case "$note" in
-    */*|..|*../*|../*|*/..)
+    */*|..)
       die "memory note must be a filename or date prefix, not a path"
       ;;
   esac

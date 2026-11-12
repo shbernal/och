@@ -4,6 +4,7 @@ BASH_COMPLETIONDIR ?= $(PREFIX)/share/bash-completion/completions
 SCRIPTS := och
 TEST_SCRIPTS := $(SCRIPTS) scripts/check-release-version
 COMPLETIONS := completions/och.bash
+TESTS := test/session-list.sh
 INSTALL := install
 
 .PHONY: help test check-release install install-user uninstall
@@ -11,7 +12,7 @@ INSTALL := install
 help:
 	@printf '%s\n' \
 	  'Targets:' \
-	  '  make test                      Syntax-check the script and completion' \
+	  '  make test                      Syntax-check the scripts, run the tests' \
 	  '  make check-release             Verify release version/tag matches package.json' \
 	  '  make install                   Install binary and bash completion' \
 	  '  make install-user              Install to $$HOME/.local' \
@@ -27,6 +28,7 @@ help:
 test:
 	for script in $(TEST_SCRIPTS); do bash -n $$script; done
 	for completion in $(COMPLETIONS); do bash -n $$completion; done
+	for test in $(TESTS); do bash $$test; done
 
 check-release: test
 	scripts/check-release-version $(VERSION)

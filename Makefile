@@ -21,7 +21,7 @@ help:
 	  '  PREFIX=/usr/local              Base install prefix' \
 	  '  BINDIR=$(PREFIX)/bin           Install directory for the executable' \
 	  '  BASH_COMPLETIONDIR=...         Install directory for bash completion' \
-	  '  VERSION=0.1.6                  Release version to check before tagging' \
+	  '  VERSION=x.y.z                  Release version to check before tagging' \
 	  '  DESTDIR=...                    Optional packaging/staging prefix'
 
 test:

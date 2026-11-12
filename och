@@ -156,7 +156,9 @@ find_session_files() {
   shopt -s nullglob
   files=("$base_dir"/*/sessions/sessions.json)
   shopt -u nullglob
-  printf '%s\n' "${files[@]}"
+  if ((${#files[@]} > 0)); then
+    printf '%s\n' "${files[@]}"
+  fi
 }
 
 session_files_for_scope() {
@@ -186,7 +188,9 @@ all_agent_skill_dirs() {
   shopt -s nullglob
   dirs=("$base_dir"/*/skills)
   shopt -u nullglob
-  printf '%s\n' "${dirs[@]}"
+  if ((${#dirs[@]} > 0)); then
+    printf '%s\n' "${dirs[@]}"
+  fi
 }
 
 skill_dirs_for_scope() {
@@ -368,6 +372,10 @@ cmd_session_list() {
   local agent file agent_name first=1 count session_key display_name
   setup_colors
   agent="$(parse_agent_option "usage: och session list [--agent <agent>]" "$@")"
+  if [[ -z "$agent" && -z "$(find_session_files)" ]]; then
+    printf 'no sessions found\n'
+    return
+  fi
   while IFS= read -r file; do
     agent_name="$(basename "$(dirname "$(dirname "$file")")")"
     count="$(jq 'keys | length' "$file")"

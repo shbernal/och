@@ -18,7 +18,7 @@ jobs:
           node-version: 24
       # make test (bash -n, the shell tests) and node --check bin/och.js
       - run: npm test
-      - run: shellcheck och scripts/check-release-version completions/och.bash
+      - run: shellcheck och scripts/check-release-version completions/och.bash test/*.sh
 
   commit-check:
     if: github.event_name == 'pull_request'

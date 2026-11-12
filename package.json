@@ -1,6 +1,6 @@
 {
   "name": "@shbernal/och",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Small helper for OpenClaw TUI session management.",
   "author": "shbernal",
   "license": "MIT",
